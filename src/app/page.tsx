@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
+import { useRealtimeListener } from "@/hooks";
 import Link from "next/link";
 import { AnimatePresence, motion } from "framer-motion";
 import { Student, AttendanceRecord } from "@/types";
@@ -15,6 +16,7 @@ import {
   Plus,
   Trash2,
 } from "lucide-react";
+import { useRouter } from "next/navigation";
 
 // ─── helpers ────────────────────────────────────────────────────────────────
 
@@ -47,14 +49,14 @@ const STATUS = [
     activeClass: "bg-green-500  text-white border-green-500",
   },
   {
-    value: "absent-approved",
+    value: "absent_approved",
     label: "인정결석",
     activeClass: "bg-yellow-400 text-white border-yellow-400",
   },
   {
-    value: "absent-unapproved",
+    value: "absent_unapproved",
     label: "미인정",
-    activeClass: "bg-red-500    text-white border-red-500",
+    activeClass: "bg-red-500 text-white border-red-500",
   },
 ] as const;
 
@@ -77,6 +79,7 @@ type NoteTarget = {
 };
 
 export default function DashboardPage() {
+  const router = useRouter();
   const [students, setStudents] = useState<Student[]>([]);
   const [records, setRecords] = useState<AttendanceRecord[]>([]);
   const [date, setDate] = useState(() => new Date());
@@ -85,9 +88,9 @@ export default function DashboardPage() {
   const [addStudentOpen, setAddStudentOpen] = useState(false);
   const [noteTarget, setNoteTarget] = useState<NoteTarget | null>(null);
 
-  // prevent double-fire on rapid nav
   const pendingRef = useRef(false);
 
+  // 날짜 이동 시 loading 표시하며 fetch
   const fetchRecords = useCallback(async (d: Date) => {
     setLoading(true);
     const res = await fetch(`/api/attendance?date=${toDateStr(d)}`);
@@ -96,18 +99,47 @@ export default function DashboardPage() {
     setLoading(false);
   }, []);
 
-  // fetch students once
-  useEffect(() => {
-    fetch("/api/students")
-      .then((r) => r.json())
-      .then((json) => {
-        if (json.success) setStudents(json.data);
-      });
+  // 리얼타임 전용: loading 없이 조용히 현재 날짜 레코드만 갱신
+  const refreshRecords = useCallback(async (d: Date) => {
+    const res = await fetch(`/api/attendance?date=${toDateStr(d)}`);
+    const json = await res.json();
+    if (json.success) setRecords(json.data);
   }, []);
 
+  const fetchStudents = useCallback(async () => {
+    const res = await fetch("/api/students");
+    const json = await res.json();
+    if (json.success) setStudents(json.data);
+  }, []);
+
+  const [recordsTick, setRecordsTick] = useState(0);
+  const [studentsTick, setStudentsTick] = useState(0);
+
+  useRealtimeListener(
+    "attendance_records",
+    useCallback(() => setRecordsTick((n) => n + 1), []),
+  );
+  useRealtimeListener(
+    "students",
+    useCallback(() => setStudentsTick((n) => n + 1), []),
+  );
+
+  // 날짜 변경: 이전 레코드 즉시 클리어 후 로딩 표시하며 fetch
   useEffect(() => {
+    setRecords([]);
     fetchRecords(date);
+    router.refresh();
   }, [date, fetchRecords]);
+
+  // 리얼타임 이벤트: 현재 날짜 기준으로 조용히 갱신 (loading 없음)
+  useEffect(() => {
+    if (recordsTick === 0) return;
+    refreshRecords(date);
+  }, [recordsTick, date, refreshRecords]);
+
+  useEffect(() => {
+    fetchStudents();
+  }, [fetchStudents, studentsTick]);
 
   // ── navigation ──
 
@@ -387,13 +419,7 @@ export default function DashboardPage() {
       <AddStudentModal
         open={addStudentOpen}
         onOpenChange={setAddStudentOpen}
-        onSuccess={() =>
-          fetch("/api/students")
-            .then((r) => r.json())
-            .then((j) => {
-              if (j.success) setStudents(j.data);
-            })
-        }
+        onSuccess={fetchStudents}
       />
 
       <NoteModal

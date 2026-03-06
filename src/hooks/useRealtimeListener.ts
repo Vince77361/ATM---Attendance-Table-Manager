@@ -2,7 +2,7 @@ import { supabase } from "@/lib/supabase";
 import { useRouter } from "next/navigation";
 import { useEffect } from "react";
 
-export const useRealtimeListener = (tableName: string) => {
+export const useRealtimeListener = (tableName: string, onRefresh?: () => void) => {
   const router = useRouter();
   useEffect(() => {
     const channel = supabase.channel(`${tableName}-changes`);
@@ -16,7 +16,11 @@ export const useRealtimeListener = (tableName: string) => {
         },
         (payload) => {
           console.log(payload);
-          router.refresh();
+          if (onRefresh) {
+            onRefresh();
+          } else {
+            router.refresh();
+          }
         },
       )
       .subscribe();
@@ -24,7 +28,7 @@ export const useRealtimeListener = (tableName: string) => {
     return () => {
       supabase.removeChannel(channel);
     };
-  }, [router, tableName]);
+  }, [router, tableName, onRefresh]);
 
   return null;
 };

@@ -40,7 +40,7 @@ export async function POST(request: Request) {
     return NextResponse.json({ success: false, error: '필수 항목을 입력해주세요.' }, { status: 400 })
   }
 
-  const validStatuses = ['attend', 'absent-approved', 'absent-unapproved']
+  const validStatuses = ['attend', 'absent_approved', 'absent_unapproved']
   if (!validStatuses.includes(status)) {
     return NextResponse.json({ success: false, error: '유효하지 않은 상태값입니다.' }, { status: 400 })
   }

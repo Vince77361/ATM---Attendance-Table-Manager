@@ -24,12 +24,12 @@ const STATUS_OPTIONS = [
     activeClass: "bg-green-600  text-white border-green-600",
   },
   {
-    value: "absent-approved",
+    value: "absent_approved",
     label: "인정결석",
     activeClass: "bg-yellow-500 text-white border-yellow-500",
   },
   {
-    value: "absent-unapproved",
+    value: "absent_unapproved",
     label: "미인정결석",
     activeClass: "bg-red-500  text-white border-red-500",
   },
