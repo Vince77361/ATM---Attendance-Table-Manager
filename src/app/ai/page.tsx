@@ -1,17 +1,9 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import Link from "next/link";
 import { motion, AnimatePresence } from "framer-motion";
 import { Student } from "@/types";
-import {
-  ArrowLeft,
-  Sparkles,
-  ChevronDown,
-  Loader2,
-  CheckCircle2,
-  XCircle,
-} from "lucide-react";
+import { ChevronDown, Loader2, CheckCircle2, XCircle, Sparkles } from "lucide-react";
 import { Textarea, Button } from "@/components/ui";
 
 type ClassifyResult = {
@@ -87,18 +79,6 @@ export default function AiClassifierPage() {
 
   return (
     <div className="min-h-screen bg-gray-50">
-      <header className="bg-white border-b border-gray-200 sticky top-0 z-30">
-        <div className="max-w-4xl mx-auto px-4 sm:px-6 py-4 flex items-center gap-3">
-          <Link
-            href="/"
-            className="text-gray-400 hover:text-gray-700 transition-colors"
-          >
-            <ArrowLeft className="w-5 h-5" />
-          </Link>
-          <Sparkles className="w-5 h-5 text-purple-600" />
-          <h1 className="text-xl font-bold text-gray-900">결석 사유 AI 판별</h1>
-        </div>
-      </header>
 
       <main className="max-w-4xl mx-auto px-4 sm:px-6 py-8">
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">

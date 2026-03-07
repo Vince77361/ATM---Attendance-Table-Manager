@@ -1,21 +1,12 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import Link from "next/link";
+import { useCallback, useEffect, useState } from "react";
 import { motion } from "framer-motion";
 import { Student } from "@/types";
-import {
-  ArrowLeft,
-  Database,
-  Check,
-  X,
-  Pencil,
-  Trash2,
-  Plus,
-} from "lucide-react";
+import { Check, X, Pencil, Trash2 } from "lucide-react";
 import * as Dialog from "@radix-ui/react-dialog";
-import { AddStudentModal } from "@/components/AddStudentModal";
 import { Input, Button } from "@/components/ui";
+import { useRealtimeListener } from "@/hooks";
 
 type EditingRow = {
   id: string;
@@ -31,19 +22,20 @@ export default function AdminPage() {
   const [saving, setSaving] = useState(false);
   const [deleteTarget, setDeleteTarget] = useState<Student | null>(null);
   const [deleting, setDeleting] = useState(false);
-  const [addStudentOpen, setAddStudentOpen] = useState(false);
 
-  const fetchStudents = async () => {
+  const fetchStudents = useCallback(async () => {
     setLoading(true);
     const res = await fetch("/api/students");
     const json = await res.json();
     if (json.success) setStudents(json.data);
     setLoading(false);
-  };
+  }, []);
 
   useEffect(() => {
     fetchStudents();
-  }, []);
+  }, [fetchStudents]);
+
+  useRealtimeListener("students", fetchStudents);
 
   const startEdit = (student: Student) => {
     setEditing({
@@ -91,25 +83,6 @@ export default function AdminPage() {
 
   return (
     <div className="min-h-screen bg-gray-50">
-      <header className="bg-white border-b border-gray-200 sticky top-0 z-30">
-        <div className="max-w-5xl mx-auto px-4 sm:px-6 py-4 flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <Link
-              href="/"
-              className="text-gray-400 hover:text-gray-700 transition-colors"
-            >
-              <ArrowLeft className="w-5 h-5" />
-            </Link>
-            <Database className="w-5 h-5 text-gray-600" />
-            <h1 className="text-xl font-bold text-gray-900">학생 관리</h1>
-          </div>
-          <Button onClick={() => setAddStudentOpen(true)}>
-            <Plus className="w-4 h-4" />
-            학생 추가
-          </Button>
-        </div>
-      </header>
-
       <main className="max-w-5xl mx-auto px-4 sm:px-6 py-8">
         <p className="text-sm text-gray-500 mb-4">
           학생별 수업료와 월 횟수를 조정합니다. 행을 클릭하면 편집됩니다.
@@ -317,11 +290,6 @@ export default function AdminPage() {
         </Dialog.Portal>
       </Dialog.Root>
 
-      <AddStudentModal
-        open={addStudentOpen}
-        onOpenChange={setAddStudentOpen}
-        onSuccess={fetchStudents}
-      />
     </div>
   );
 }
