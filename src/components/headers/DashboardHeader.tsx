@@ -45,7 +45,10 @@ export function DashboardHeader() {
       <AddStudentModal
         open={addStudentOpen}
         onOpenChange={setAddStudentOpen}
-        onSuccess={() => setAddStudentOpen(false)}
+        onSuccess={() => {
+          setAddStudentOpen(false);
+          window.dispatchEvent(new CustomEvent("students-updated"));
+        }}
       />
     </>
   );

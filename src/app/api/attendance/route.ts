@@ -55,5 +55,21 @@ export async function POST(request: Request) {
     return NextResponse.json({ success: false, error: error.message }, { status: 500 })
   }
 
+  // 인정결석이면 monthly_count 차감
+  if (status === 'absent_approved') {
+    const { data: student } = await supabase
+      .from('students')
+      .select('monthly_count')
+      .eq('id', student_id)
+      .single()
+
+    if (student) {
+      await supabase
+        .from('students')
+        .update({ monthly_count: Math.max(0, student.monthly_count - 1) })
+        .eq('id', student_id)
+    }
+  }
+
   return NextResponse.json({ success: true, data }, { status: 201 })
 }

@@ -8,28 +8,9 @@ import { Student, AttendanceRecord } from "@/types";
 import { NoteModal } from "@/components/modals";
 import { ChevronLeft, ChevronRight, Users, Trash2 } from "lucide-react";
 import { useRouter } from "next/navigation";
-
-// ─── helpers ────────────────────────────────────────────────────────────────
-
-const WEEKDAYS = ["일", "월", "화", "수", "목", "금", "토"];
-
-function toDateStr(d: Date) {
-  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
-}
-
-function formatDisplay(d: Date) {
-  return `${d.getFullYear()}년 ${d.getMonth() + 1}월 ${d.getDate()}일 (${WEEKDAYS[d.getDay()]})`;
-}
-
-function addDays(d: Date, n: number) {
-  const r = new Date(d);
-  r.setDate(r.getDate() + n);
-  return r;
-}
-
-function isToday(d: Date) {
-  return toDateStr(d) === toDateStr(new Date());
-}
+import { formatDisplay, toDateStr, addDays, isToday } from "@/lib/utils";
+import toast from "react-hot-toast";
+import { taintObjectReference } from "next/dist/server/app-render/entry-base";
 
 // ─── status config ───────────────────────────────────────────────────────────
 
@@ -49,7 +30,7 @@ const STATUS = [
     label: "미인정",
     activeClass: "bg-red-500 text-white border-red-500",
   },
-] as const;
+];
 
 type StatusValue = (typeof STATUS)[number]["value"];
 
@@ -80,7 +61,7 @@ export default function DashboardPage() {
 
   const pendingRef = useRef(false);
 
-  // 날짜 이동 시 loading 표시하며 fetch
+  // 나중에 Suspense로 고칠듯
   const fetchRecords = useCallback(async (d: Date) => {
     setLoading(true);
     const res = await fetch(`/api/attendance?date=${toDateStr(d)}`);
@@ -89,7 +70,6 @@ export default function DashboardPage() {
     setLoading(false);
   }, []);
 
-  // 리얼타임 전용: loading 없이 조용히 현재 날짜 레코드만 갱신
   const refreshRecords = useCallback(async (d: Date) => {
     const res = await fetch(`/api/attendance?date=${toDateStr(d)}`);
     const json = await res.json();
@@ -130,6 +110,13 @@ export default function DashboardPage() {
   useEffect(() => {
     fetchStudents();
   }, [fetchStudents, studentsTick]);
+
+  // layout의 DashboardHeader에서 학생 추가 시 CustomEvent로 알림
+  useEffect(() => {
+    const handler = () => fetchStudents();
+    window.addEventListener("students-updated", handler);
+    return () => window.removeEventListener("students-updated", handler);
+  }, [fetchStudents]);
 
   // ── navigation ──
 
@@ -194,32 +181,44 @@ export default function DashboardPage() {
 
   const handleNoteSave = async (note: string) => {
     if (!noteTarget) return;
-    const { student, status, existingRecord } = noteTarget;
-    if (existingRecord) {
-      await fetch(`/api/attendance/${existingRecord.id}`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ status, note: note || null }),
-      });
-    } else {
-      await fetch("/api/attendance", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          student_id: student.id,
-          date: toDateStr(date),
-          status,
-          note: note || null,
-        }),
-      });
+    try {
+      const { student, status, existingRecord } = noteTarget;
+      if (existingRecord) {
+        await fetch(`/api/attendance/${existingRecord.id}`, {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ status, note: note || null }),
+        });
+      } else {
+        await fetch("/api/attendance", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            student_id: student.id,
+            date: toDateStr(date),
+            status,
+            note: note || null,
+          }),
+        });
+      }
+      setNoteTarget(null);
+      await fetchRecords(date);
+      toast.success("성공적으로 수정했습니다!");
+    } catch (err) {
+      toast.error("수정에 실패하였습니다.");
+      console.error(err);
     }
-    setNoteTarget(null);
-    await fetchRecords(date);
   };
 
   const handleDelete = async (record: AttendanceRecord) => {
-    await fetch(`/api/attendance/${record.id}`, { method: "DELETE" });
-    await fetchRecords(date);
+    try {
+      await fetch(`/api/attendance/${record.id}`, { method: "DELETE" });
+      await fetchRecords(date);
+      toast.success("성공적으로 삭제했습니다!");
+    } catch (err) {
+      toast.error("삭제에 실패하였습니다.");
+      console.error(err);
+    }
   };
 
   // ── summary ──
@@ -234,8 +233,7 @@ export default function DashboardPage() {
 
   return (
     <div className="min-h-screen bg-gray-50">
-
-      {/* ── date navigator ── */}
+      {/* ── 날짜 이동 섹션 ── */}
       <div className="bg-white border-b border-gray-100 sticky top-[53px] z-20">
         <div className="max-w-2xl mx-auto px-4 py-3">
           <div className="flex items-center justify-between">
@@ -268,7 +266,7 @@ export default function DashboardPage() {
             </button>
           </div>
 
-          {/* summary pills */}
+          {/* 출석 현황 */}
           <div className="flex items-center justify-center gap-3 mt-2 text-xs text-gray-900">
             <span className="flex items-center gap-1">
               <span className="w-1.5 h-1.5 rounded-full bg-green-500 inline-block" />
@@ -290,7 +288,7 @@ export default function DashboardPage() {
         </div>
       </div>
 
-      {/* ── student list (animated) ── */}
+      {/* ── student list ── */}
       <main className="max-w-2xl mx-auto px-4 py-4">
         {students.length === 0 && !loading ? (
           <div className="text-center py-20 text-gray-400">
@@ -360,7 +358,7 @@ export default function DashboardPage() {
                           </div>
                         </div>
 
-                        {/* note */}
+                        {/* 사유(note) */}
                         {record?.note && (
                           <p className="mt-1 text-xs text-gray-400 pl-0.5">
                             사유: {record.note}

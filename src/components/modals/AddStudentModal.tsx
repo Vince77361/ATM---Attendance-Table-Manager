@@ -5,6 +5,7 @@ import * as Dialog from "@radix-ui/react-dialog";
 import { motion } from "framer-motion";
 import { Input } from "@/components/ui";
 import { Button } from "@/components/ui";
+import toast from "react-hot-toast";
 
 interface AddStudentModalProps {
   open: boolean;
@@ -42,6 +43,7 @@ export function AddStudentModal({
     setName("");
     onOpenChange(false);
     onSuccess();
+    toast.success("성공적으로 추가했습니다!");
   };
 
   return (

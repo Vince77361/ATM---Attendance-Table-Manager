@@ -88,11 +88,10 @@ export default function StudentDetailPage() {
   const unapprovedAbsences = records.filter(
     (r) => r.status === "absent_unapproved",
   ).length;
-  const totalAbsences = approvedAbsences + unapprovedAbsences;
-  const billedClasses = student
-    ? Math.max(0, student.monthly_count - totalAbsences)
+  // monthly_count는 인정결석 시 API에서 차감되므로 그대로 곱하면 됨
+  const monthlyFee = student
+    ? student.monthly_count * student.fee_per_class
     : 0;
-  const monthlyFee = student ? billedClasses * student.fee_per_class : 0;
 
   if (loading) {
     return (
@@ -145,13 +144,14 @@ export default function StudentDetailPage() {
               </p>
             </div>
             <div className="text-right">
-              <p className="text-sm text-gray-500 mb-1">월 기본 횟수</p>
+              <p className="text-sm text-gray-500 mb-1">청구 횟수</p>
               <p className="text-lg font-semibold text-gray-900">
                 {student.monthly_count}회
               </p>
             </div>
           </div>
           <div className="grid grid-cols-3 gap-3 mb-4">
+            {/* 질문: 이런 건 constant화 시킬수 없는 건가?? */}
             {[
               {
                 label: "출석",
@@ -185,7 +185,7 @@ export default function StudentDetailPage() {
             <div>
               <p className="text-sm text-gray-500">이번 달 청구 수업료</p>
               <p className="text-sm text-gray-400">
-                ({student.monthly_count} - {totalAbsences}회 결석) ×{" "}
+                {student.monthly_count}회 ×{" "}
                 {student.fee_per_class.toLocaleString()}원
               </p>
             </div>
@@ -195,7 +195,6 @@ export default function StudentDetailPage() {
           </div>
         </motion.div>
 
-        {/* Attendance Records */}
         <div className="flex items-center justify-between mb-4">
           <h2 className="text-base font-semibold text-gray-900">출석 기록</h2>
           <div className="flex items-center gap-2">
